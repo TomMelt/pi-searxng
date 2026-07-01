@@ -1,5 +1,5 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { search } from "./searxng.js";
 import { fetchContent } from "./extract.js";
@@ -45,7 +45,7 @@ export default function (pi: ExtensionAPI) {
         
         return {
           content: [{ type: "text", text: formatSearchResults(results) }],
-          details: { searchId, resultCount: results.length, query: params.query }
+          details: { searchId, resultCount: results.length, query: params.query, results }
         };
       } catch (err) {
         return {
@@ -61,9 +61,31 @@ export default function (pi: ExtensionAPI) {
       return new Text(theme.fg("toolTitle", "search ") + theme.fg("accent", `"${display}"`), 0, 0);
     },
     
-    renderResult(result, _opts, theme) {
-      const count = (result.details as any)?.resultCount || 0;
-      return new Text(theme.fg("success", `${count} results`), 0, 0);
+    renderResult(result, { expanded }, theme) {
+      const details = result.details as any;
+      if (details?.error) {
+        return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+      }
+      const results = details?.results || [];
+      const count = results.length;
+      if (count === 0) {
+        return new Text(theme.fg("dim", "No results found."), 0, 0);
+      }
+
+      let text = theme.fg("success", `${count} result${count !== 1 ? "s" : ""} for `) + theme.fg("accent", `"${details.query}"`);
+      const maxDisplay = expanded ? count : Math.min(count, 5);
+      for (let i = 0; i < maxDisplay; i++) {
+        const r = results[i];
+        const num = theme.fg("accent", `${i + 1}.`);
+        const title = theme.fg("text", ` ${r.title}`);
+        const url = theme.fg("mdLink", ` ${r.url}`);
+        const snippet = theme.fg("dim", ` ${r.snippet.slice(0, expanded ? 300 : 150)}`);
+        text += `\n${num}${title}\n${url}\n${snippet}`;
+      }
+      if (!expanded && count > maxDisplay) {
+        text += `\n${theme.fg("dim", `... and ${count - maxDisplay} more result${count - maxDisplay !== 1 ? "s" : ""} (searchId: ${details.searchId})`)}`;
+      }
+      return new Text(text, 0, 0);
     }
   });
 
@@ -136,13 +158,32 @@ export default function (pi: ExtensionAPI) {
       return new Text(theme.fg("toolTitle", prefix) + theme.fg(color, display), 0, 0);
     },
     
-    renderResult(result, _opts, theme) {
+    renderResult(result, { expanded }, theme) {
       const details = result.details as any;
-      if (details?.localPath) {
-        return new Text(theme.fg("success", `cloned`) + theme.fg("muted", ` ${details.fileCount} files`), 0, 0);
+      if (details?.error) {
+        return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
       }
-      const length = details?.length || 0;
-      return new Text(theme.fg("success", `${length} chars`) + (details?.truncated ? theme.fg("warning", " [truncated]") : ""), 0, 0);
+      if (details?.localPath) {
+        return new Text(
+          theme.fg("success", "✓ cloned ") +
+          theme.fg("muted", `${details.fileCount} files at `) +
+          theme.fg("accent", details.localPath),
+          0, 0
+        );
+      }
+      const content = result.content?.[0]?.type === "text" ? result.content[0].text : "";
+      if (expanded && content) {
+        const title = details?.title ? theme.fg("accent", `## ${details.title}`) : "";
+        const url = details?.url ? theme.fg("mdLink", `Source: ${details.url}`) : "";
+        return new Text(`${title}\n${url}\n\n${content}`, 0, 0);
+      }
+      const length = details?.length || content.length;
+      const title = details?.title ? ` "${details.title}"` : "";
+      return new Text(
+        theme.fg("success", `✓ fetched${title}`) +
+        theme.fg("muted", ` (${length} chars)`) +
+        (details?.truncated ? theme.fg("warning", " [truncated]") : "")
+      );
     }
   });
 
