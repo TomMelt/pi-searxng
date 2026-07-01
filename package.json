@@ -13,7 +13,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jcha0713/pi-searxng"
+    "url": "https://github.com/TomMelt/pi-searxng"
   },
   "files": [
     "index.ts",
@@ -30,8 +30,8 @@
     "turndown": "^7.2.0"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
     "@sinclair/typebox": "*"
   },
   "pi": {
